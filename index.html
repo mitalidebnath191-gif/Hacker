@@ -1,8 +1,17 @@
-<!DOCTYPE html>  <html lang="en">  
+<!DOCTYPE html>  
+<html lang="en">  
 <head>  
 <meta charset="UTF-8">  
 <meta name="viewport" content="width=device-width, initial-scale=1.0">  
-<title>Fast & Smooth Finger Tracking</title>  <!-- Google MediaPipe Libraries for Hand Tracking -->  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>  <style>  
+<title>Fast & Smooth Finger Tracking with Skeleton</title>  
+
+<!-- Google MediaPipe Libraries for Hand Tracking -->  
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>  
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>  
+<!-- হাতের রেখা আঁকার জন্য Drawing Utils লাইব্রেরি -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
+<style>  
 * {  
     margin: 0;  
     padding: 0;  
@@ -27,6 +36,18 @@ body {
     z-index: 1;  
     transform: scaleX(-1);  
 }  
+
+/* হাতের রেখা আঁকার ক্যানভাস */
+#output_canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    transform: scaleX(-1);
+    pointer-events: none;
+}
   
 #tracker {  
     position: absolute;  
@@ -94,15 +115,33 @@ body {
     padding: 10px 20px;  
     border-radius: 10px;  
 }  
-</style>  </head>  
-<body>  <div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>  <video id="webcam" autoplay playsinline></video>
+</style>  
+</head>  
+<body>  
+    <div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>  
+    <video id="webcam" autoplay playsinline></video>
+    
+    <!-- ক্যানভাস এলিমেন্ট -->
+    <canvas id="output_canvas"></canvas>
 
-<div id="tracker" style="display: none;">  
-    <div class="circle"></div>  
-</div>  <script>  
+    <div id="tracker" style="display: none;">  
+        <div class="circle"></div>  
+    </div>  
+    
+<script>  
 const videoElement = document.getElementById('webcam');  
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
 const tracker = document.getElementById('tracker');  
 const loadingText = document.getElementById('loading');  
+
+// ক্যানভাসের সাইজ স্ক্রিনের সমান করা
+function resizeCanvas() {
+    canvasElement.width = window.innerWidth;
+    canvasElement.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
   
 let targetX = window.innerWidth / 2;  
 let targetY = window.innerHeight / 2;  
@@ -131,9 +170,24 @@ hands.onResults((results) => {
         loadingText.style.display = 'none';  
         tracker.style.display = 'block';  
     }  
+
+    // প্রতি ফ্রেমে ক্যানভাস পরিষ্কার করা
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
   
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {  
         const landmarks = results.multiHandLandmarks[0];  
+
+        // হাতের রেখা (Skeleton) আঁকার কোড
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+            color: '#00ffff', // সায়ান রঙের রেখা
+            lineWidth: 3
+        });
+        drawLandmarks(canvasCtx, landmarks, {
+            color: '#ff00ff', // ম্যাজেন্টা রঙের পয়েন্ট
+            lineWidth: 1,
+            radius: 3
+        });
           
         const thumb = landmarks[4];  
         const index = landmarks[8];  
@@ -146,6 +200,8 @@ hands.onResults((results) => {
         targetY = midY * window.innerHeight;  
         targetScale = Math.max(0.3, dist * 3.5);  
     }  
+
+    canvasCtx.restore();
 });  
   
 function animate() {  
@@ -172,7 +228,6 @@ camera.start().catch(err => {
     loadingText.innerText = "ক্যামেরা অ্যাক্সেস পাওয়া যায়নি!";  
     console.error(err);  
 });  
-</script> 
-<script src="index.js"></script>
+</script>  
 </body>  
 </html>
