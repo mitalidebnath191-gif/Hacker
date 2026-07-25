@@ -1,187 +1,178 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fast & Smooth Finger Tracking</title>
-<!-- Google MediaPipe Libraries for Hand Tracking -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+<!DOCTYPE html>  <html lang="en">  
+<head>  
+<meta charset="UTF-8">  
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  
+<title>Fast & Smooth Finger Tracking</title>  <!-- Google MediaPipe Libraries for Hand Tracking -->  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>  <style>  
+* {  
+    margin: 0;  
+    padding: 0;  
+    box-sizing: border-box;  
+}  
+  
+body {  
+    width: 100vw;  
+    height: 100vh;  
+    background: #000;  
+    overflow: hidden;  
+    position: relative;  
+}  
+  
+#webcam {  
+    position: absolute;  
+    top: 0;  
+    left: 0;  
+    width: 100%;  
+    height: 100%;  
+    object-fit: cover;  
+    z-index: 1;  
+    transform: scaleX(-1);  
+}  
+  
+#tracker {  
+    position: absolute;  
+    top: 0;  
+    left: 0;  
+    pointer-events: none;  
+    transform-origin: center;  
+    z-index: 5;  
+    will-change: transform;   
+}  
+  
+/* Glow Circle CSS */  
+.circle {  
+    width: 220px;  
+    height: 220px;  
+    border-radius: 50%;  
+    border: 8px solid #00eaff;  
+    position: relative;  
+    margin-left: -110px;  
+    margin-top: -110px;   
+    animation: spin 8s linear infinite, glow 2s ease-in-out infinite alternate;  
+}  
+  
+.circle::before {  
+    content: "";  
+    position: absolute;  
+    inset: -12px;  
+    border-radius: 50%;  
+    border: 8px solid #00ffff;  
+    filter: blur(18px);  
+    opacity: .8;  
+}  
+  
+.circle::after {  
+    content: "";  
+    position: absolute;  
+    inset: 20px;  
+    border-radius: 50%;  
+    box-shadow:  
+        0 0 25px #00ffff,  
+        0 0 60px #00ffff,  
+        inset 0 0 25px #00ffff;  
+}  
+  
+@keyframes spin {  
+    from { transform: rotate(0deg); }  
+    to { transform: rotate(360deg); }  
+}  
+  
+@keyframes glow {  
+    from { box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 80px #00ffff; }  
+    to { box-shadow: 0 0 40px #00ffff, 0 0 80px #00ffff, 0 0 140px #00ffff; }  
+}  
+  
+.loading-text {  
+    color: #00ffff;  
+    font-family: sans-serif;  
+    position: absolute;  
+    top: 50%;  
+    left: 50%;  
+    transform: translate(-50%, -50%);  
+    font-size: 20px;  
+    z-index: 10;  
+    background: rgba(0, 0, 0, 0.7);  
+    padding: 10px 20px;  
+    border-radius: 10px;  
+}  
+</style>  </head>  
+<body>  <div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>  <video id="webcam" autoplay playsinline></video>
 
-body {
-    width: 100vw;
-    height: 100vh;
-    background: #000;
-    overflow: hidden;
-    position: relative;
-}
-
-#webcam {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-    transform: scaleX(-1);
-}
-
-#tracker {
-    position: absolute;
-    top: 0;
-    left: 0;
-    pointer-events: none;
-    transform-origin: center;
-    z-index: 5;
-    will-change: transform;
-}
-
-/* Glow Circle CSS */
-.circle {
-    width: 220px;
-    height: 220px;
-    border-radius: 50%;
-    border: 8px solid #00eaff;
-    position: relative;
-    margin-left: -110px;
-    margin-top: -110px;
-    animation: spin 8s linear infinite, glow 2s ease-in-out infinite alternate;
-}
-
-.circle::before {
-    content: "";
-    position: absolute;
-    inset: -12px;
-    border-radius: 50%;
-    border: 8px solid #00ffff;
-    filter: blur(18px);
-    opacity: .8;
-}
-
-.circle::after {
-    content: "";
-    position: absolute;
-    inset: 20px;
-    border-radius: 50%;
-    box-shadow:
-        0 0 25px #00ffff,
-        0 0 60px #00ffff,
-        inset 0 0 25px #00ffff;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-@keyframes glow {
-    from { box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 80px #00ffff; }
-    to { box-shadow: 0 0 40px #00ffff, 0 0 80px #00ffff, 0 0 140px #00ffff; }
-}
-
-.loading-text {
-    color: #00ffff;
-    font-family: sans-serif;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 20px;
-    z-index: 10;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 10px 20px;
-    border-radius: 10px;
-}
-</style>
-</head>
-<body>
-<div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>
-<video id="webcam" autoplay playsinline></video>
-
-<div id="tracker" style="display: none;">
-    <div class="circle"></div>
-</div>
-
-<script>
-const videoElement = document.getElementById('webcam');
-const tracker = document.getElementById('tracker');
-const loadingText = document.getElementById('loading');
-
-let targetX = window.innerWidth / 2;
-let targetY = window.innerHeight / 2;
-let targetScale = 1;
-
-let currentX = targetX;
-let currentY = targetY;
-let currentScale = targetScale;
-
-// স্পিড বাড়িয়ে দেওয়া হয়েছে, যাতে দেরি না হয়
-const lerpSpeed = 0.5;
-
-const hands = new Hands({locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-}});
-
-hands.setOptions({
-    maxNumHands: 1,
-    modelComplexity: 0, // 0 করে দেওয়া হয়েছে যাতে ট্র্যাকিং সুপার ফাস্ট হয়
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-});
-
-hands.onResults((results) => {
-    if(loadingText.style.display !== 'none') {
-        loadingText.style.display = 'none';
-        tracker.style.display = 'block';
-    }
-
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-        
-        const thumb = landmarks[4];
-        const index = landmarks[8];
-
-        const midX = (thumb.x + index.x) / 2;
-        const midY = (thumb.y + index.y) / 2;
-        const dist = Math.sqrt(Math.pow(index.x - thumb.x, 2) + Math.pow(index.y - thumb.y, 2));
-
-        targetX = (1 - midX) * window.innerWidth;
-        targetY = midY * window.innerHeight;
-        targetScale = Math.max(0.3, dist * 3.5);
-    }
-});
-
-function animate() {
-    currentX += (targetX - currentX) * lerpSpeed;
-    currentY += (targetY - currentY) * lerpSpeed;
-    currentScale += (targetScale - currentScale) * lerpSpeed;
-
-    tracker.style.transform = `translate(${currentX}px, \( {currentY}px) scale( \){currentScale})`;
-
-    requestAnimationFrame(animate);
-}
-animate();
-
-const camera = new Camera(videoElement, {
-    onFrame: async () => {
-        await hands.send({image: videoElement});
-    },
-    width: 640,
-    height: 480,
-    facingMode: 'user'
-});
-
-camera.start().catch(err => {
-    loadingText.innerText = "ক্যামেরা অ্যাক্সেস পাওয়া যায়নি!";
-    console.error(err);
-});
-</script>
-</body>
+<div id="tracker" style="display: none;">  
+    <div class="circle"></div>  
+</div>  <script>  
+const videoElement = document.getElementById('webcam');  
+const tracker = document.getElementById('tracker');  
+const loadingText = document.getElementById('loading');  
+  
+let targetX = window.innerWidth / 2;  
+let targetY = window.innerHeight / 2;  
+let targetScale = 1;  
+  
+let currentX = targetX;  
+let currentY = targetY;  
+let currentScale = targetScale;  
+  
+// স্পিড বাড়িয়ে দেওয়া হয়েছে, যাতে দেরি না হয়  
+const lerpSpeed = 0.5;   
+  
+const hands = new Hands({locateFile: (file) => {  
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;  
+}});  
+  
+hands.setOptions({  
+    maxNumHands: 1,  
+    modelComplexity: 0, // 0 করে দেওয়া হয়েছে যাতে ট্র্যাকিং সুপার ফাস্ট হয়  
+    minDetectionConfidence: 0.5,  
+    minTrackingConfidence: 0.5  
+});  
+  
+hands.onResults((results) => {  
+    if(loadingText.style.display !== 'none') {  
+        loadingText.style.display = 'none';  
+        tracker.style.display = 'block';  
+    }  
+  
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {  
+        const landmarks = results.multiHandLandmarks[0];  
+          
+        const thumb = landmarks[4];  
+        const index = landmarks[8];  
+  
+        const midX = (thumb.x + index.x) / 2;  
+        const midY = (thumb.y + index.y) / 2;  
+        const dist = Math.sqrt(Math.pow(index.x - thumb.x, 2) + Math.pow(index.y - thumb.y, 2));  
+  
+        targetX = (1 - midX) * window.innerWidth;  
+        targetY = midY * window.innerHeight;  
+        targetScale = Math.max(0.3, dist * 3.5);  
+    }  
+});  
+  
+function animate() {  
+    currentX += (targetX - currentX) * lerpSpeed;  
+    currentY += (targetY - currentY) * lerpSpeed;  
+    currentScale += (targetScale - currentScale) * lerpSpeed;  
+  
+    tracker.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;  
+  
+    requestAnimationFrame(animate);  
+}  
+animate();   
+  
+const camera = new Camera(videoElement, {  
+    onFrame: async () => {  
+        await hands.send({image: videoElement});  
+    },  
+    width: 640,  
+    height: 480,  
+    facingMode: 'user'  
+});  
+  
+camera.start().catch(err => {  
+    loadingText.innerText = "ক্যামেরা অ্যাক্সেস পাওয়া যায়নি!";  
+    console.error(err);  
+});  
+</script> 
+<script src="index.js"></script>
+</body>  
 </html>
