@@ -4,11 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fast & Smooth Finger Tracking</title>
-
 <!-- Google MediaPipe Libraries for Hand Tracking -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
 <style>
 * {
     margin: 0;
@@ -42,7 +40,7 @@ body {
     pointer-events: none;
     transform-origin: center;
     z-index: 5;
-    will-change: transform; 
+    will-change: transform;
 }
 
 /* Glow Circle CSS */
@@ -53,7 +51,7 @@ body {
     border: 8px solid #00eaff;
     position: relative;
     margin-left: -110px;
-    margin-top: -110px; 
+    margin-top: -110px;
     animation: spin 8s linear infinite, glow 2s ease-in-out infinite alternate;
 }
 
@@ -104,9 +102,7 @@ body {
 </style>
 </head>
 <body>
-
 <div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>
-
 <video id="webcam" autoplay playsinline></video>
 
 <div id="tracker" style="display: none;">
@@ -127,7 +123,7 @@ let currentY = targetY;
 let currentScale = targetScale;
 
 // স্পিড বাড়িয়ে দেওয়া হয়েছে, যাতে দেরি না হয়
-const lerpSpeed = 0.5; 
+const lerpSpeed = 0.5;
 
 const hands = new Hands({locateFile: (file) => {
     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
@@ -167,11 +163,11 @@ function animate() {
     currentY += (targetY - currentY) * lerpSpeed;
     currentScale += (targetScale - currentScale) * lerpSpeed;
 
-    tracker.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+    tracker.style.transform = `translate(${currentX}px, \( {currentY}px) scale( \){currentScale})`;
 
     requestAnimationFrame(animate);
 }
-animate(); 
+animate();
 
 const camera = new Camera(videoElement, {
     onFrame: async () => {
@@ -187,5 +183,8 @@ camera.start().catch(err => {
     console.error(err);
 });
 </script>
+
+<!-- এখানে index.js লোড হচ্ছে -->
+<script src="index.js"></script>
 </body>
 </html>
