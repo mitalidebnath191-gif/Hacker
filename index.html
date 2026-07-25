@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finger Tracking Glowing Circle</title>
+
+<!-- Google MediaPipe Libraries for Hand Tracking -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Video element hidden (আমরা শুধু ট্র্যাকিংয়ের জন্য ক্যামেরা চাই, ভিডিও দেখাতে চাই না) */
+#webcam {
+    display: none;
+}
+
+/* Tracker container - এটি স্ক্রিনে ঘুরবে */
+#tracker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    transform-origin: center;
+    transition: transform 0.1s ease-out; /* Smooth movement */
+}
+
+/* তোমার অরিজিনাল Glow Circle CSS */
+.circle {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    border: 8px solid #00eaff;
+    position: relative;
+    /* বৃত্তকে কেন্দ্রে রাখার জন্য মার্জিন */
+    margin-left: -110px;
+    margin-top: -110px; 
+    animation: spin 8s linear infinite, glow 2s ease-in-out infinite alternate;
+}
+
+.circle::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    border: 8px solid #00ffff;
+    filter: blur(18px);
+    opacity: .8;
+}
+
+.circle::after {
+    content: "";
+    position: absolute;
+    inset: 20px;
+    border-radius: 50%;
+    box-shadow:
+        0 0 25px #00ffff,
+        0 0 60px #00ffff,
+        inset 0 0 25px #00ffff;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes glow {
+    from {
+        box-shadow:
+        0 0 20px #00ffff,
+        0 0 40px #00ffff,
+        0 0 80px #00ffff;
+    }
+    to {
+        box-shadow:
+        0 0 40px #00ffff,
+        0 0 80px #00ffff,
+        0 0 140px #00ffff;
+    }
+}
+
+.loading-text {
+    color: #00ffff;
+    font-family: sans-serif;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    z-index: 10;
+}
+</style>
+</head>
+<body>
+
+<div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... (Please allow camera permission)</div>
+
+<!-- Hidden Video for Camera -->
+<video id="webcam" autoplay playsinline></video>
+
+<!-- Circle Container -->
+<div id="tracker" style="display: none;">
+    <div class="circle"></div>
+</div>
+
+<script>
+const videoElement = document.getElementById('webcam');
+const tracker = document.getElementById('tracker');
+const loadingText = document.getElementById('loading');
+
+// Setup MediaPipe Hands
+const hands = new Hands({locateFile: (file) => {
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+}});
+
+hands.setOptions({
+    maxNumHands: 1, // আমরা একটি হাত ট্র্যাক করব
+    modelComplexity: 1,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+});
+
+hands.onResults((results) => {
+    // ট্র্যাকিং শুরু হলে লোডিং টেক্সট লুকিয়ে ফেলব
+    if(loadingText.style.display !== 'none') {
+        loadingText.style.display = 'none';
+        tracker.style.display = 'block';
+    }
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        
+        // Thumb tip (৪ নম্বর পয়েন্ট) এবং Index finger tip (৮ নম্বর পয়েন্ট)
+        const thumb = landmarks[4];
+        const index = landmarks[8];
+
+        // দুই আঙুলের মাঝখানের পয়েন্ট বের করা (যাতে বৃত্তটা মাঝে থাকে)
+        const midX = (thumb.x + index.x) / 2;
+        const midY = (thumb.y + index.y) / 2;
+
+        // দুই আঙুলের দূরত্ব বের করা (যাতে আঙুল ছড়ালে বৃত্ত বড় হয়)
+        const dist = Math.sqrt(Math.pow(index.x - thumb.x, 2) + Math.pow(index.y - thumb.y, 2));
+
+        // স্থানাঙ্কগুলোকে স্ক্রিনের পিক্সেল-এ কনভার্ট করা
+        // (x-অক্ষটি মিরর বা উল্টো করা হয়েছে যাতে আয়নার মতো স্বাভাবিক মনে হয়)
+        const screenX = (1 - midX) * window.innerWidth;
+        const screenY = midY * window.innerHeight;
+
+        // আঙুলের দূরত্বের উপর নির্ভর করে সাইজ (Scale) ঠিক করা
+        const scale = Math.max(0.2, dist * 3);
+
+        // বৃত্তটিকে নির্দিষ্ট জায়গায় সরানো এবং সাইজ পরিবর্তন করা
+        tracker.style.transform = `translate(${screenX}px, ${screenY}px) scale(${scale})`;
+    }
+});
+
+// Start Camera
+const camera = new Camera(videoElement, {
+    onFrame: async () => {
+        await hands.send({image: videoElement});
+    },
+    width: 640,
+    height: 480
+});
+
+camera.start().catch(err => {
+    loadingText.innerText = "ক্যামেরা পারমিশন দেওয়া হয়নি বা কোনো সমস্যা হয়েছে!";
+    console.error(err);
+});
+</script>
+</body>
+</html>
+  
