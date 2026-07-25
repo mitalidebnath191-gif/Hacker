@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Finger Tracking Glowing Circle</title>
+<title>Smooth Finger Tracking Glowing Circle</title>
 
 <!-- Google MediaPipe Libraries for Hand Tracking -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -32,19 +32,20 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: 1; /* ভিডিও পেছনে থাকবে */
+    z-index: 1;
     transform: scaleX(-1); /* আয়নার মতো মিরর ভিউ করার জন্য */
 }
 
-/* Tracker container - এটি স্ক্রিনে ঘুরবে */
+/* Tracker container */
 #tracker {
     position: absolute;
     top: 0;
     left: 0;
     pointer-events: none;
     transform-origin: center;
-    transition: transform 0.1s ease-out; /* Smooth movement */
-    z-index: 5; /* সার্কেলটি ভিডিওর উপরে থাকবে */
+    /* CSS transition সরিয়ে দেওয়া হয়েছে, কারণ JS দিয়ে 60fps লুপ হবে */
+    z-index: 5;
+    will-change: transform; /* ব্রাউজারকে হার্ডওয়্যার এক্সিলারেশন ব্যবহার করতে বলবে */
 }
 
 /* তোমার অরিজিনাল Glow Circle CSS */
@@ -54,7 +55,6 @@ body {
     border-radius: 50%;
     border: 8px solid #00eaff;
     position: relative;
-    /* বৃত্তকে কেন্দ্রে রাখার জন্য মার্জিন */
     margin-left: -110px;
     margin-top: -110px; 
     animation: spin 8s linear infinite, glow 2s ease-in-out infinite alternate;
@@ -88,16 +88,10 @@ body {
 
 @keyframes glow {
     from {
-        box-shadow:
-        0 0 20px #00ffff,
-        0 0 40px #00ffff,
-        0 0 80px #00ffff;
+        box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 80px #00ffff;
     }
     to {
-        box-shadow:
-        0 0 40px #00ffff,
-        0 0 80px #00ffff,
-        0 0 140px #00ffff;
+        box-shadow: 0 0 40px #00ffff, 0 0 80px #00ffff, 0 0 140px #00ffff;
     }
 }
 
@@ -120,10 +114,8 @@ body {
 
 <div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>
 
-<!-- Video for Camera (Visible now) -->
 <video id="webcam" autoplay playsinline></video>
 
-<!-- Circle Container -->
 <div id="tracker" style="display: none;">
     <div class="circle"></div>
 </div>
@@ -133,20 +125,31 @@ const videoElement = document.getElementById('webcam');
 const tracker = document.getElementById('tracker');
 const loadingText = document.getElementById('loading');
 
+// 60fps স্মুথ অ্যানিমেশনের জন্য ভেরিয়েবল
+let targetX = window.innerWidth / 2;
+let targetY = window.innerHeight / 2;
+let targetScale = 1;
+
+let currentX = targetX;
+let currentY = targetY;
+let currentScale = targetScale;
+
+// Lerp (Linear Interpolation) ভ্যালু। 0.15 দিলে খুব স্মুথ হবে।
+const lerpSpeed = 0.15; 
+
 // Setup MediaPipe Hands
 const hands = new Hands({locateFile: (file) => {
     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
 }});
 
 hands.setOptions({
-    maxNumHands: 1, // আমরা একটি হাত ট্র্যাক করব
+    maxNumHands: 1,
     modelComplexity: 1,
     minDetectionConfidence: 0.6,
     minTrackingConfidence: 0.6
 });
 
 hands.onResults((results) => {
-    // ট্র্যাকিং শুরু হলে লোডিং টেক্সট লুকিয়ে ফেলব
     if(loadingText.style.display !== 'none') {
         loadingText.style.display = 'none';
         tracker.style.display = 'block';
@@ -155,37 +158,41 @@ hands.onResults((results) => {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         const landmarks = results.multiHandLandmarks[0];
         
-        // Thumb tip (৪ নম্বর পয়েন্ট) এবং Index finger tip (৮ নম্বর পয়েন্ট)
         const thumb = landmarks[4];
         const index = landmarks[8];
 
-        // দুই আঙুলের মাঝখানের পয়েন্ট বের করা (যাতে বৃত্তটা মাঝে থাকে)
         const midX = (thumb.x + index.x) / 2;
         const midY = (thumb.y + index.y) / 2;
-
-        // দুই আঙুলের দূরত্ব বের করা (যাতে আঙুল ছড়ালে বৃত্ত বড় হয়)
         const dist = Math.sqrt(Math.pow(index.x - thumb.x, 2) + Math.pow(index.y - thumb.y, 2));
 
-        // স্থানাঙ্কগুলোকে স্ক্রিনের পিক্সেল-এ কনভার্ট করা
-        const screenX = (1 - midX) * window.innerWidth;
-        const screenY = midY * window.innerHeight;
-
-        // আঙুলের দূরত্বের উপর নির্ভর করে সাইজ (Scale) ঠিক করা
-        const scale = Math.max(0.3, dist * 3.5);
-
-        // বৃত্তটিকে নির্দিষ্ট জায়গায় সরানো এবং সাইজ পরিবর্তন করা
-        tracker.style.transform = `translate(${screenX}px, ${screenY}px) scale(${scale})`;
+        // টার্গেট পজিশন সেট করা হচ্ছে, কিন্তু বৃত্ত এখনই সরবে না (লুপে সরবে)
+        targetX = (1 - midX) * window.innerWidth;
+        targetY = midY * window.innerHeight;
+        targetScale = Math.max(0.3, dist * 3.5);
     }
 });
 
-// Start Camera (Mobile-এর Front Camera ব্যবহার করবে)
+// 60FPS Animation Loop
+function animate() {
+    // Current position ধীরে ধীরে Target position-এর দিকে যাবে
+    currentX += (targetX - currentX) * lerpSpeed;
+    currentY += (targetY - currentY) * lerpSpeed;
+    currentScale += (targetScale - currentScale) * lerpSpeed;
+
+    tracker.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+
+    requestAnimationFrame(animate); // ব্রাউজারের রিফ্রেশ রেট অনুযায়ী কল হবে
+}
+animate(); // লুপ শুরু করা হলো
+
+// Start Camera
 const camera = new Camera(videoElement, {
     onFrame: async () => {
         await hands.send({image: videoElement});
     },
     width: 640,
     height: 480,
-    facingMode: 'user' // ফ্রন্ট ক্যামেরা জোরপূর্বক চালু করার জন্য
+    facingMode: 'user'
 });
 
 camera.start().catch(err => {
