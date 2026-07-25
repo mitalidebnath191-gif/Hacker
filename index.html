@@ -24,9 +24,16 @@ body {
     position: relative;
 }
 
-/* Video element hidden (আমরা শুধু ট্র্যাকিংয়ের জন্য ক্যামেরা চাই, ভিডিও দেখাতে চাই না) */
+/* Video element (ক্যামেরা ভিউ স্ক্রিন জুড়ে থাকবে) */
 #webcam {
-    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1; /* ভিডিও পেছনে থাকবে */
+    transform: scaleX(-1); /* আয়নার মতো মিরর ভিউ করার জন্য */
 }
 
 /* Tracker container - এটি স্ক্রিনে ঘুরবে */
@@ -37,6 +44,7 @@ body {
     pointer-events: none;
     transform-origin: center;
     transition: transform 0.1s ease-out; /* Smooth movement */
+    z-index: 5; /* সার্কেলটি ভিডিওর উপরে থাকবে */
 }
 
 /* তোমার অরিজিনাল Glow Circle CSS */
@@ -102,14 +110,17 @@ body {
     transform: translate(-50%, -50%);
     font-size: 20px;
     z-index: 10;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 10px;
 }
 </style>
 </head>
 <body>
 
-<div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... (Please allow camera permission)</div>
+<div class="loading-text" id="loading">ক্যামেরা চালু হচ্ছে... একটু অপেক্ষা করো...</div>
 
-<!-- Hidden Video for Camera -->
+<!-- Video for Camera (Visible now) -->
 <video id="webcam" autoplay playsinline></video>
 
 <!-- Circle Container -->
@@ -156,32 +167,31 @@ hands.onResults((results) => {
         const dist = Math.sqrt(Math.pow(index.x - thumb.x, 2) + Math.pow(index.y - thumb.y, 2));
 
         // স্থানাঙ্কগুলোকে স্ক্রিনের পিক্সেল-এ কনভার্ট করা
-        // (x-অক্ষটি মিরর বা উল্টো করা হয়েছে যাতে আয়নার মতো স্বাভাবিক মনে হয়)
         const screenX = (1 - midX) * window.innerWidth;
         const screenY = midY * window.innerHeight;
 
         // আঙুলের দূরত্বের উপর নির্ভর করে সাইজ (Scale) ঠিক করা
-        const scale = Math.max(0.2, dist * 3);
+        const scale = Math.max(0.3, dist * 3.5);
 
         // বৃত্তটিকে নির্দিষ্ট জায়গায় সরানো এবং সাইজ পরিবর্তন করা
         tracker.style.transform = `translate(${screenX}px, ${screenY}px) scale(${scale})`;
     }
 });
 
-// Start Camera
+// Start Camera (Mobile-এর Front Camera ব্যবহার করবে)
 const camera = new Camera(videoElement, {
     onFrame: async () => {
         await hands.send({image: videoElement});
     },
     width: 640,
-    height: 480
+    height: 480,
+    facingMode: 'user' // ফ্রন্ট ক্যামেরা জোরপূর্বক চালু করার জন্য
 });
 
 camera.start().catch(err => {
-    loadingText.innerText = "ক্যামেরা পারমিশন দেওয়া হয়নি বা কোনো সমস্যা হয়েছে!";
+    loadingText.innerText = "ক্যামেরা অ্যাক্সেস পাওয়া যায়নি!";
     console.error(err);
 });
 </script>
 </body>
 </html>
-  
