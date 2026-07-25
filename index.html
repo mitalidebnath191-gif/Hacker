@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smooth Finger Tracking Glowing Circle</title>
+<title>Fast & Smooth Finger Tracking</title>
 
 <!-- Google MediaPipe Libraries for Hand Tracking -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -24,7 +24,6 @@ body {
     position: relative;
 }
 
-/* Video element (ক্যামেরা ভিউ স্ক্রিন জুড়ে থাকবে) */
 #webcam {
     position: absolute;
     top: 0;
@@ -33,22 +32,20 @@ body {
     height: 100%;
     object-fit: cover;
     z-index: 1;
-    transform: scaleX(-1); /* আয়নার মতো মিরর ভিউ করার জন্য */
+    transform: scaleX(-1);
 }
 
-/* Tracker container */
 #tracker {
     position: absolute;
     top: 0;
     left: 0;
     pointer-events: none;
     transform-origin: center;
-    /* CSS transition সরিয়ে দেওয়া হয়েছে, কারণ JS দিয়ে 60fps লুপ হবে */
     z-index: 5;
-    will-change: transform; /* ব্রাউজারকে হার্ডওয়্যার এক্সিলারেশন ব্যবহার করতে বলবে */
+    will-change: transform; 
 }
 
-/* তোমার অরিজিনাল Glow Circle CSS */
+/* Glow Circle CSS */
 .circle {
     width: 220px;
     height: 220px;
@@ -87,12 +84,8 @@ body {
 }
 
 @keyframes glow {
-    from {
-        box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 80px #00ffff;
-    }
-    to {
-        box-shadow: 0 0 40px #00ffff, 0 0 80px #00ffff, 0 0 140px #00ffff;
-    }
+    from { box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 80px #00ffff; }
+    to { box-shadow: 0 0 40px #00ffff, 0 0 80px #00ffff, 0 0 140px #00ffff; }
 }
 
 .loading-text {
@@ -125,7 +118,6 @@ const videoElement = document.getElementById('webcam');
 const tracker = document.getElementById('tracker');
 const loadingText = document.getElementById('loading');
 
-// 60fps স্মুথ অ্যানিমেশনের জন্য ভেরিয়েবল
 let targetX = window.innerWidth / 2;
 let targetY = window.innerHeight / 2;
 let targetScale = 1;
@@ -134,19 +126,18 @@ let currentX = targetX;
 let currentY = targetY;
 let currentScale = targetScale;
 
-// Lerp (Linear Interpolation) ভ্যালু। 0.15 দিলে খুব স্মুথ হবে।
-const lerpSpeed = 0.15; 
+// স্পিড বাড়িয়ে দেওয়া হয়েছে, যাতে দেরি না হয়
+const lerpSpeed = 0.5; 
 
-// Setup MediaPipe Hands
 const hands = new Hands({locateFile: (file) => {
     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
 }});
 
 hands.setOptions({
     maxNumHands: 1,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.6
+    modelComplexity: 0, // 0 করে দেওয়া হয়েছে যাতে ট্র্যাকিং সুপার ফাস্ট হয়
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
 });
 
 hands.onResults((results) => {
@@ -165,27 +156,23 @@ hands.onResults((results) => {
         const midY = (thumb.y + index.y) / 2;
         const dist = Math.sqrt(Math.pow(index.x - thumb.x, 2) + Math.pow(index.y - thumb.y, 2));
 
-        // টার্গেট পজিশন সেট করা হচ্ছে, কিন্তু বৃত্ত এখনই সরবে না (লুপে সরবে)
         targetX = (1 - midX) * window.innerWidth;
         targetY = midY * window.innerHeight;
         targetScale = Math.max(0.3, dist * 3.5);
     }
 });
 
-// 60FPS Animation Loop
 function animate() {
-    // Current position ধীরে ধীরে Target position-এর দিকে যাবে
     currentX += (targetX - currentX) * lerpSpeed;
     currentY += (targetY - currentY) * lerpSpeed;
     currentScale += (targetScale - currentScale) * lerpSpeed;
 
     tracker.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
 
-    requestAnimationFrame(animate); // ব্রাউজারের রিফ্রেশ রেট অনুযায়ী কল হবে
+    requestAnimationFrame(animate);
 }
-animate(); // লুপ শুরু করা হলো
+animate(); 
 
-// Start Camera
 const camera = new Camera(videoElement, {
     onFrame: async () => {
         await hands.send({image: videoElement});
